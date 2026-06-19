@@ -1,0 +1,20 @@
+import subprocess
+import sys
+import os
+
+def main():
+    # Resolve the directory of code/evaluation/main.py to execute the command correctly
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    code_dir = os.path.dirname(script_dir)
+    
+    # Run the TypeScript evaluation entry point using npx tsx
+    result = subprocess.run(
+        ["npx", "tsx", "src/evaluation/evaluator.ts"], 
+        cwd=code_dir, 
+        capture_output=False, 
+        shell=True
+    )
+    sys.exit(result.returncode)
+
+if __name__ == "__main__":
+    main()

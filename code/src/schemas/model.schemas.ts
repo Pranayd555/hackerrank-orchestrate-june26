@@ -1,34 +1,18 @@
 import { z } from 'zod';
-import { IssueTypeSchema, SeveritySchema, ClaimStatusSchema } from './output.schemas';
 
 /**
- * Schema for structured JSON output from VLM models
+ * Schema for structured JSON observations from VLM models (e.g. Qwen, Gemma, Gemini)
  */
-export const ModelOutputSchema = z.object({
-  evidence_standard_met: z.boolean(),
-  evidence_standard_met_reason: z.string(),
-  // Candidate risk flags found from visual inspection
-  visual_risk_flags: z.array(z.enum([
-    'blurry_image',
-    'cropped_or_obstructed',
-    'low_light_or_glare',
-    'wrong_angle',
-    'wrong_object',
-    'wrong_object_part',
-    'damage_not_visible',
-    'claim_mismatch',
-    'possible_manipulation',
-    'non_original_image',
-    'text_instruction_present'
-  ])),
-  issue_type: IssueTypeSchema,
-  object_part: z.string(),
-  claim_status: ClaimStatusSchema,
-  claim_status_justification: z.string(),
-  supporting_image_ids: z.array(z.string()),
-  valid_image: z.boolean(),
-  severity: SeveritySchema,
+export const ModelObservationSchema = z.object({
+  visible_object: z.string(), // The main object seen in the images, e.g. "car", "laptop", "package", "toy", etc.
+  visible_part: z.string(),   // The specific object part visible, or "unknown", "none"
+  visible_issue: z.string(),  // The visible damage type, e.g. "dent", "scratch", "none", "unknown"
+  damage_visible: z.boolean(),
+  part_visible: z.boolean(),
+  image_quality: z.enum(['good', 'blurry', 'cropped', 'obstructed', 'glare', 'low_light', 'bad']),
+  confidence: z.number().min(0.0).max(1.0),
+  observations: z.string(),   // Text description detailing the physical evidence
+  supporting_image_ids: z.array(z.string()), // Filenames (without extensions) showing the evidence
 });
 
-export type ModelOutput = z.infer<typeof ModelOutputSchema>;
-export type VisualRiskFlag = ModelOutput['visual_risk_flags'][number];
+export type ModelObservation = z.infer<typeof ModelObservationSchema>;
