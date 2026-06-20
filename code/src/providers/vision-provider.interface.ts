@@ -12,6 +12,8 @@ export interface VisionAnalysisInput {
     mimeType: string;
   }>;
   evidenceRequirements: string[];
+  imagePaths?: string;
+  userId?: string;
 }
 
 export interface IVisionProvider {

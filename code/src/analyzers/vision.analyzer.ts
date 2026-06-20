@@ -13,7 +13,10 @@ export class VisionAnalyzer {
    */
   public async analyzeEvidence(input: VisionAnalysisInput): Promise<ModelObservation> {
     try {
-      return await this.provider.analyze(input);
+      const observation = await this.provider.analyze(input);
+      // Normalize the observed part to fit strict schema definitions
+      observation.visible_part = this.normalizePart(input.claimObject, observation.visible_part, input.extractedPart);
+      return observation;
     } catch (error) {
       console.error('❌ Error during visual evidence analysis:', error);
       return {
@@ -28,5 +31,70 @@ export class VisionAnalyzer {
         supporting_image_ids: [],
       };
     }
+  }
+
+  private normalizePart(claimObject: string, part: string, expectedPart: string): string {
+    const p = part.toLowerCase().trim().replace(/[-_ ]+/g, '_');
+    const ep = expectedPart.toLowerCase().trim();
+
+    if (claimObject === 'package') {
+      if (p === 'side' || p === 'package_side' || p === 'packageside') {
+        return 'package_side';
+      }
+      if (p === 'corner' || p === 'package_corner' || p === 'packagecorner') {
+        return 'package_corner';
+      }
+      if (p === 'box' || p === 'package' || p === 'parcel' || p === 'mailer') {
+        return 'box';
+      }
+      if (p === 'seal' || p === 'tape') {
+        return 'seal';
+      }
+    }
+
+    if (claimObject === 'car') {
+      if (p === 'front' || p === 'front_bumper' || p === 'front_bumper_area') {
+        return 'front_bumper';
+      }
+      if (p === 'rear' || p === 'rear_bumper' || p === 'rear_bumper_area' || p === 'back') {
+        return 'rear_bumper';
+      }
+      if (p === 'bumper') {
+        if (ep === 'front_bumper' || ep === 'rear_bumper') {
+          return ep;
+        }
+        return 'rear_bumper';
+      }
+      if (p === 'mirror' || p === 'side_mirror') {
+        return 'side_mirror';
+      }
+      if (p === 'headlight' || p === 'head_light' || p === 'headlamp') {
+        return 'headlight';
+      }
+      if (p === 'taillight' || p === 'tail_light' || p === 'tail_lamp') {
+        return 'taillight';
+      }
+      if (p === 'glass' || p === 'windshield') {
+        return 'windshield';
+      }
+    }
+
+    if (claimObject === 'laptop') {
+      if (p === 'display' || p === 'screen') {
+        return 'screen';
+      }
+      if (p === 'hinges' || p === 'hinge') {
+        return 'hinge';
+      }
+      if (p === 'trackpad' || p === 'touchpad' || p === 'track_pad') {
+        return 'trackpad';
+      }
+      if (p === 'corner' || p === 'laptop_corner') {
+        return 'corner';
+      }
+    }
+
+    // Default to original if no specific mapping is matched
+    return part;
   }
 }

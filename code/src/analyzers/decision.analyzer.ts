@@ -111,7 +111,12 @@ export class DecisionEngine {
         object_part = observation.visible_part as ObjectPart;
         justification = comparison.justification;
 
-        if (observation.damage_visible) {
+        // If wrong_object is flagged, overwrite part and issue to unknown as they belong to the wrong object
+        if (comparison.mismatchFlags.includes('wrong_object')) {
+          issue_type = 'unknown';
+          object_part = 'unknown';
+          severity = 'low'; // Wrong object showing damage has a low severity by default
+        } else if (observation.damage_visible) {
           severity = this.determineSeverity(claimInput.claim_object, object_part, issue_type, true);
         } else {
           severity = 'none';

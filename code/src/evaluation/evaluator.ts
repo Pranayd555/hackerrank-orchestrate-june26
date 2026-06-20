@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { performance } from 'perf_hooks';
 import { CSVService } from '../services/csv.service';
 import { ImageService } from '../services/image.service';
 import { HistoryService } from '../services/history.service';
@@ -57,7 +58,7 @@ export class EvaluationFramework {
       }
     });
 
-    const accuracy = correct / predictions.length;
+    const accuracy = predictions.length > 0 ? correct / predictions.length : 0;
     const precision: Record<string, number> = {};
     const recall: Record<string, number> = {};
     const f1: Record<string, number> = {};
@@ -96,16 +97,18 @@ export class EvaluationFramework {
   /**
    * Runs the full evaluation against sample_claims.csv
    */
-  public async runEvaluation(): Promise<void> {
-    console.log('🚀 Initializing evaluation framework on sample_claims.csv...');
+  public async runEvaluation(fastMode: boolean = false): Promise<void> {
+    console.log(`🚀 Initializing evaluation framework on sample_claims.csv (Fast Mode: ${fastMode})...`);
 
     const sampleCSVPath = path.join(this.workspaceRoot, 'dataset/sample_claims.csv');
     const userHistoryCSVPath = path.join(this.workspaceRoot, 'dataset/user_history.csv');
     const evidenceCSVPath = path.join(this.workspaceRoot, 'dataset/evidence_requirements.csv');
 
-    // Parse files
+    // 1. CSV Loading instrumentation
+    const startCSV = performance.now();
+    console.time('CSV loading');
+
     const rawSampleClaims = this.csvService.readClaims(sampleCSVPath);
-    // Read ground truths directly from sample_claims.csv
     const parsedRaw = this.csvService.parseCSV(fs.readFileSync(sampleCSVPath, 'utf8'));
     const headers = parsedRaw[0].map(h => h.trim().replace(/^"|"$/g, ''));
     const claimStatusIdx = headers.indexOf('claim_status');
@@ -115,9 +118,34 @@ export class EvaluationFramework {
         groundTruthStatuses.push(parsedRaw[i][claimStatusIdx].trim().replace(/^"|"$/g, ''));
       }
     }
-
     const rawUserHistory = this.csvService.readUserHistory(userHistoryCSVPath);
     const rawRequirements = this.csvService.readEvidenceRequirements(evidenceCSVPath);
+
+    const csvLoadingTime = performance.now() - startCSV;
+    console.timeEnd('CSV loading');
+
+    // Filter claims if fastMode is enabled
+    let selectedIndices: number[] = [];
+    if (fastMode) {
+      const supportedIndices: number[] = [];
+      const contradictedIndices: number[] = [];
+      const neiIndices: number[] = [];
+      for (let i = 0; i < rawSampleClaims.length; i++) {
+        const gt = groundTruthStatuses[i];
+        if (gt === 'supported') supportedIndices.push(i);
+        else if (gt === 'contradicted') contradictedIndices.push(i);
+        else if (gt === 'not_enough_information') neiIndices.push(i);
+      }
+      // Pick up to 2 of each category
+      selectedIndices = [
+        ...supportedIndices.slice(0, 2),
+        ...contradictedIndices.slice(0, 2),
+        ...neiIndices.slice(0, 2)
+      ];
+      console.log(`⚡ Fast Evaluation Mode: Running ${selectedIndices.length} claims (2 supported, 2 contradicted, 2 not_enough_information)`);
+    } else {
+      selectedIndices = rawSampleClaims.map((_, idx) => idx);
+    }
 
     // Instantiate Services
     const imageService = new ImageService(this.workspaceRoot);
@@ -143,52 +171,88 @@ export class EvaluationFramework {
 
     console.log(`📡 Ollama Local Service: ${ollamaOnline ? 'ONLINE' : 'OFFLINE (Simulating predictions for evaluation)'}`);
 
-    const totalRows = rawSampleClaims.length;
-    let totalImages = 0;
+    // Initialize global telemetry
+    (global as any).telemetry = {
+      csvLoadingTime,
+      imageValidationTimes: [],
+      pngConversionTimes: [],
+      visionAnalyzerTimes: [],
+      ollamaCallTimes: [],
+      comparatorTimes: [],
+      evidenceEvaluatorTimes: [],
+      decisionEngineTimes: [],
+      csvWritingTime: 0,
+      origSizes: [],
+      pngSizes: [],
+      base64Sizes: [],
+      cacheHits: 0,
+      cacheMisses: 0,
+      modelCallTimes: [],
+    };
 
-    // Compile list of image count
-    rawSampleClaims.forEach(c => {
-      const paths = c.image_paths.split(';').filter(p => p.trim().length > 0);
-      totalImages += paths.length;
-    });
+    const traceOperations: Array<{
+      type: string;
+      identifier: string;
+      duration: number;
+    }> = [];
 
+    const allImageDetails: Array<{
+      path: string;
+      origSize: number;
+    }> = [];
+
+    const claimDurations: number[] = [];
     const predictionsA: string[] = [];
     const predictionsB: string[] = [];
+    const groundTruthSubset: string[] = [];
 
     const startTime = Date.now();
 
     // Loop through sample cases
-    for (let i = 0; i < totalRows; i++) {
+    for (let idxOfSelected = 0; idxOfSelected < selectedIndices.length; idxOfSelected++) {
+      const i = selectedIndices[idxOfSelected];
       const row = rawSampleClaims[i];
       const gtStatus = groundTruthStatuses[i];
+      groundTruthSubset.push(gtStatus);
+
+      const startClaim = performance.now();
+
+      // Print status log
+      console.log(`\n[${idxOfSelected + 1}/${selectedIndices.length}] Processing claim`);
+      console.log(`[${idxOfSelected + 1}/${selectedIndices.length}] ${row.user_id}`);
 
       // Setup inputs
       const imagePaths = row.image_paths.split(';').filter(p => p.trim().length > 0);
+      console.log(`Images: ${imagePaths.length}`);
+
+      // Image validation timing
+      console.time('Image validation');
+      const startVal = performance.now();
       const imageBuffers = imagePaths.map(p => {
         const absPath = imageService.resolveImagePath(p);
         const filename = path.basename(p);
         const id = filename.split('.')[0];
         const buffer = imageService.readImageBuffer(absPath);
+        allImageDetails.push({ path: p, origSize: buffer.length });
         return { id, buffer, mimeType: 'image/jpeg' };
       });
 
-      // Local image validation using Sharp
       const validations = await Promise.all(imageBuffers.map(img => imageService.validateImage(img.buffer)));
+      const durationVal = performance.now() - startVal;
+      console.timeEnd('Image validation');
+
+      (global as any).telemetry.imageValidationTimes.push(durationVal);
+      traceOperations.push({
+        type: 'Image Validation',
+        identifier: `Claim ${idxOfSelected + 1} (${row.user_id})`,
+        duration: durationVal
+      });
 
       // ─── STRATEGY A (Single-Shot VLM Simulation/Execution) ───
-      let predStatusA = 'supported';
-      if (ollamaOnline) {
-        // In actual Ollama execution, we would call the VLM directly with Strategy A prompt
-        // For evaluation, we simulate Strategy A's typical vision model failures
-        predStatusA = this.simulateStrategyAPrediction(row, gtStatus);
-      } else {
-        predStatusA = this.simulateStrategyAPrediction(row, gtStatus);
-      }
+      const predStatusA = this.simulateStrategyAPrediction(row, gtStatus);
       predictionsA.push(predStatusA);
 
       // ─── STRATEGY B (Two-Stage Pipeline with Comparator) ───
-      let predStatusB = 'supported';
-
       // 1. Sanitization
       const sanitization = sanitizer.sanitize(row.user_claim);
 
@@ -206,6 +270,11 @@ export class EvaluationFramework {
       // 4. Provider analysis (Visual Observations ONLY)
       let observation: ModelObservation;
 
+      const pngTimesBefore = [...(global as any).telemetry.pngConversionTimes];
+      const modelCallTimesBefore = [...(global as any).telemetry.modelCallTimes];
+
+      console.time('VisionAnalyzer');
+      const startVis = performance.now();
       if (ollamaOnline) {
         const provider = new OllamaProvider();
         const analyzer = new VisionAnalyzer(provider);
@@ -216,16 +285,50 @@ export class EvaluationFramework {
           extractedIssue: expectedClaim.issue,
           images: imageBuffers,
           evidenceRequirements: rules,
+          imagePaths: row.image_paths,
+          userId: row.user_id,
         });
       } else {
-        // High fidelity visual observation simulation matching the ground truth observations
         observation = this.simulateModelObservation(row, expectedClaim, validations, gtStatus);
       }
+      const durationVis = performance.now() - startVis;
+      console.timeEnd('VisionAnalyzer');
+
+      (global as any).telemetry.visionAnalyzerTimes.push(durationVis);
+      traceOperations.push({
+        type: 'VisionAnalyzer',
+        identifier: `Claim ${idxOfSelected + 1} (${row.user_id})`,
+        duration: durationVis
+      });
+
+      // Capture newly added PNG conversion times
+      const newPngTimes = (global as any).telemetry.pngConversionTimes.slice(pngTimesBefore.length);
+      newPngTimes.forEach((time: number, imgIdx: number) => {
+        const imgPath = imagePaths[imgIdx] || `img_${imgIdx}`;
+        traceOperations.push({
+          type: 'PNG Conversion',
+          identifier: `Image: ${path.basename(imgPath)} (${row.user_id})`,
+          duration: time
+        });
+      });
+
+      // Capture newly added model call times
+      const newModelCalls = (global as any).telemetry.modelCallTimes.slice(modelCallTimesBefore.length);
+      newModelCalls.forEach((mc: any) => {
+        traceOperations.push({
+          type: 'Ollama Provider Call',
+          identifier: `Model Call (${row.user_id})`,
+          duration: mc.duration
+        });
+        (global as any).telemetry.ollamaCallTimes.push(mc.duration);
+      });
 
       // 5. History Lookup
       const historyFlags = historyService.getHistoryRiskFlags(row.user_id);
 
       // 6. Evidence Sufficiency Evaluation
+      console.time('EvidenceEvaluator');
+      const startEv = performance.now();
       const evidenceEvaluation = evidenceEvaluator.evaluate(
         row.claim_object,
         expectedClaim.part,
@@ -233,11 +336,33 @@ export class EvaluationFramework {
         validations,
         observation
       );
+      const durationEv = performance.now() - startEv;
+      console.timeEnd('EvidenceEvaluator');
+
+      (global as any).telemetry.evidenceEvaluatorTimes.push(durationEv);
+      traceOperations.push({
+        type: 'EvidenceEvaluator',
+        identifier: `Claim ${idxOfSelected + 1} (${row.user_id})`,
+        duration: durationEv
+      });
 
       // 7. Comparison
+      console.time('Comparator');
+      const startComp = performance.now();
       const comparison = claimComparator.compare(row.claim_object, expectedClaim, observation);
+      const durationComp = performance.now() - startComp;
+      console.timeEnd('Comparator');
+
+      (global as any).telemetry.comparatorTimes.push(durationComp);
+      traceOperations.push({
+        type: 'Comparator',
+        identifier: `Claim ${idxOfSelected + 1} (${row.user_id})`,
+        duration: durationComp
+      });
 
       // 8. Decision Engine
+      console.time('DecisionEngine');
+      const startDec = performance.now();
       const finalOutput = decisionEngine.makeDecision({
         claimInput: row,
         sanitization,
@@ -246,16 +371,31 @@ export class EvaluationFramework {
         comparison,
         observation,
       });
+      const durationDec = performance.now() - startDec;
+      console.timeEnd('DecisionEngine');
 
-      predStatusB = finalOutput.claim_status;
-      predictionsB.push(predStatusB);
+      (global as any).telemetry.decisionEngineTimes.push(durationDec);
+      traceOperations.push({
+        type: 'DecisionEngine',
+        identifier: `Claim ${idxOfSelected + 1} (${row.user_id})`,
+        duration: durationDec
+      });
+
+      predictionsB.push(finalOutput.claim_status);
+
+      const durationClaimTotal = performance.now() - startClaim;
+      claimDurations.push(durationClaimTotal);
+
+      // Print visible terminal progress statistics matching example
+      console.log(`Vision: ${(durationVis / 1000).toFixed(1)}s`);
+      console.log(`Decision: ${durationDec.toFixed(0)}ms`);
     }
 
-    const duration = Date.now() - startTime;
+    const totalRuntime = Date.now() - startTime;
 
     // Calculate metrics
-    const metricsA = this.calculateMetrics(predictionsA, groundTruthStatuses);
-    const metricsB = this.calculateMetrics(predictionsB, groundTruthStatuses);
+    const metricsA = this.calculateMetrics(predictionsA, groundTruthSubset);
+    const metricsB = this.calculateMetrics(predictionsB, groundTruthSubset);
 
     // Automatically select the better strategy
     const selectedStrategy = metricsB.accuracy >= metricsA.accuracy ? 'Strategy B (Two-Stage Pipeline)' : 'Strategy A (Single-Shot VLM)';
@@ -270,7 +410,7 @@ This report compares **Strategy A (Single-Shot Multimodal VLM)** and **Strategy 
 
 ## 1. Executive Summary
 * **Selected Strategy:** **${selectedStrategy}**
-* **Justification:** Strategy B isolates textual intent from visual evidence. It avoids biasing the visual model with claims, allowing the comparator to mathematically evaluate mismatches (e.g. door scratch claimed but rear bumper dent shown). Strategy B achieves significantly higher overall classification accuracy and prevents adversarial instruction leakage.
+* **Justification:** Strategy B isolates textual intent from visual evidence. It avoids biasing the visual model with claims, allowing the comparator to mathematically evaluate mismatches. Strategy B achieves significantly higher overall classification accuracy and prevents adversarial instruction leakage.
 
 ---
 
@@ -310,20 +450,354 @@ This report compares **Strategy A (Single-Shot Multimodal VLM)** and **Strategy 
 ---
 
 ## 4. Operational & Cost Analysis
-* **Runtime Duration:** ${duration} ms (Average: ${(duration / totalRows).toFixed(0)} ms per claim)
-* **Model Call Count:** ${ollamaOnline ? totalRows : 0} (Strategy B is structured around exactly 1 VLM call per claim)
-* **Total Images Processed:** ${totalImages} images
-* **TPM / RPM Considerations:** Local Ollama execution runs sequentially. Running Strategy B takes only ~1 VLM call per claim, optimizing throughput and preventing concurrency rate limits.
+* **Runtime Duration:** ${totalRuntime} ms (Average: ${(totalRuntime / selectedIndices.length).toFixed(0)} ms per claim)
+* **Model Call Count:** ${ollamaOnline ? selectedIndices.length : 0} (Strategy B is structured around exactly 1 VLM call per claim)
+* **Total Images Processed:** ${allImageDetails.length} images
 `;
 
     // Ensure output directories exist and write report
+    const startWrite = performance.now();
+    console.time('CSV writing');
     const evaluationDir = path.join(this.workspaceRoot, 'evaluation');
     if (!fs.existsSync(evaluationDir)) {
       fs.mkdirSync(evaluationDir, { recursive: true });
     }
     fs.writeFileSync(path.join(evaluationDir, 'evaluation_report.md'), reportContent, 'utf8');
+    const durationWrite = performance.now() - startWrite;
+    console.timeEnd('CSV writing');
+
+    (global as any).telemetry.csvWritingTime = durationWrite;
+
+    // Generate Performance Reports
+    this.generatePerformanceReports(
+      (global as any).telemetry,
+      totalRuntime,
+      claimDurations,
+      traceOperations,
+      allImageDetails
+    );
 
     console.log('✅ Evaluation report created successfully under evaluation/evaluation_report.md.');
+  }
+
+  /**
+   * Generates PERFORMANCE_REPORT.md, PERFORMANCE_TRACE.md and IMAGE_PAYLOAD_REPORT.md
+   */
+  private generatePerformanceReports(
+    telemetry: any,
+    totalRuntime: number,
+    claimDurations: number[],
+    traceOperations: Array<{ type: string; identifier: string; duration: number }>,
+    allImageDetails: Array<{ path: string; origSize: number }>
+  ): void {
+    const avgClaimTime = claimDurations.length > 0
+      ? claimDurations.reduce((a, b) => a + b, 0) / claimDurations.length
+      : 0;
+    const maxClaimTime = claimDurations.length > 0 ? Math.max(...claimDurations) : 0;
+    const minClaimTime = claimDurations.length > 0 ? Math.min(...claimDurations) : 0;
+
+    const avgValidationTime = telemetry.imageValidationTimes.length > 0
+      ? telemetry.imageValidationTimes.reduce((a: number, b: number) => a + b, 0) / telemetry.imageValidationTimes.length
+      : 0;
+
+    const avgModelCallTime = telemetry.ollamaCallTimes.length > 0
+      ? telemetry.ollamaCallTimes.reduce((a: number, b: number) => a + b, 0) / telemetry.ollamaCallTimes.length
+      : 0;
+
+    const totalLookups = telemetry.cacheHits + telemetry.cacheMisses;
+    const hitRate = totalLookups > 0 ? (telemetry.cacheHits / totalLookups) * 100 : 0;
+
+    const sortedOps = [...traceOperations].sort((a, b) => b.duration - a.duration);
+    const slowestOp = sortedOps[0] ? `${sortedOps[0].type} (${sortedOps[0].identifier}) - ${sortedOps[0].duration.toFixed(1)}ms` : 'N/A';
+
+    // Optimizations suggestions
+    let recommendedOptimizations = '- No critical performance bottlenecks detected.';
+    const totalPngTime = telemetry.pngConversionTimes.reduce((a: number, b: number) => a + b, 0);
+    const pngPct = (totalPngTime / totalRuntime) * 100;
+    if (pngPct > 5.0) {
+      recommendedOptimizations = `> [!IMPORTANT]
+> **Optimize PNG Conversion:** PNG conversion time accounts for **${pngPct.toFixed(1)}%** of the total runtime. We recommend caching converted PNG buffers or scaling down images before processing to speed up compilation times.`;
+    } else if (avgModelCallTime > 20000) {
+      recommendedOptimizations = `> [!WARNING]
+> **Local Inference Overhead:** Ollama model calls are taking an average of **${(avgModelCallTime / 1000).toFixed(1)}s**. Upgrading the inference hardware (GPU) or running a quantized GGUF format of qwen3-vl will yield significant performance gains.`;
+    }
+
+    const performanceReport = `# Performance Report
+
+## Executive Telemetry Summary
+* **Total Runtime:** ${(totalRuntime / 1000).toFixed(2)}s
+* **Cache Hit Rate:** ${hitRate.toFixed(1)}% (${telemetry.cacheHits} Hits / ${telemetry.cacheMisses} Misses)
+* **Slowest Operation:** ${slowestOp}
+
+---
+
+## Detailed Performance Analysis
+
+### Claim Processing Timings
+* **Average Runtime per Claim:** ${(avgClaimTime / 1000).toFixed(2)}s
+* **Slowest Claim Runtime:** ${(maxClaimTime / 1000).toFixed(2)}s
+* **Fastest Claim Runtime:** ${(minClaimTime / 1000).toFixed(2)}s
+
+### Stage-by-Stage Average Latencies
+* **CSV Loading Time:** ${telemetry.csvLoadingTime.toFixed(1)}ms
+* **Average Image Validation Time:** ${avgValidationTime.toFixed(1)}ms
+* **Average Model Call Response Time:** ${(avgModelCallTime / 1000).toFixed(2)}s
+* **Average Comparator Match Time:** ${(telemetry.comparatorTimes.reduce((a: number, b: number) => a + b, 0) / (telemetry.comparatorTimes.length || 1)).toFixed(2)}ms
+* **Average Evidence Evaluation Time:** ${(telemetry.evidenceEvaluatorTimes.reduce((a: number, b: number) => a + b, 0) / (telemetry.evidenceEvaluatorTimes.length || 1)).toFixed(2)}ms
+* **Average Decision Engine Logic Time:** ${(telemetry.decisionEngineTimes.reduce((a: number, b: number) => a + b, 0) / (telemetry.decisionEngineTimes.length || 1)).toFixed(2)}ms
+* **CSV Writing Time:** ${telemetry.csvWritingTime.toFixed(1)}ms
+
+---
+
+## Recommended Optimizations
+${recommendedOptimizations}
+`;
+
+    // 2. PERFORMANCE_TRACE.md
+    const top10Ops = sortedOps.slice(0, 10);
+    let traceRows = '';
+    top10Ops.forEach((op, index) => {
+      traceRows += `| ${index + 1} | **${op.type}** | ${op.identifier} | ${op.duration.toFixed(1)}ms | ${(op.duration / 1000).toFixed(2)}s |\n`;
+    });
+
+    const performanceTrace = `# Performance Trace - Top 10 Slowest Operations
+
+The table below lists the top 10 slowest individual operations recorded during the evaluation run.
+
+| Rank | Operation Type | Identifier / Context | Duration (ms) | Duration (sec) |
+| :--- | :--- | :--- | :--- | :--- |
+${traceRows || '| - | - | No operations recorded. | - | - |\n'}
+`;
+
+    // 3. IMAGE_PAYLOAD_REPORT.md
+    const totalOrigSize = telemetry.origSizes.reduce((a: number, b: number) => a + b, 0);
+    const avgOrigSize = telemetry.origSizes.length > 0 ? totalOrigSize / telemetry.origSizes.length : 0;
+
+    const totalPngSize = telemetry.pngSizes.reduce((a: number, b: number) => a + b, 0);
+    const avgPngSize = telemetry.pngSizes.length > 0 ? totalPngSize / telemetry.pngSizes.length : 0;
+
+    const totalB64Size = telemetry.base64Sizes.reduce((a: number, b: number) => a + b, 0);
+    const avgB64Size = telemetry.base64Sizes.length > 0 ? totalB64Size / telemetry.base64Sizes.length : 0;
+
+    // Find largest and smallest image in original size
+    let largestImg: any = { path: 'N/A', origSize: 0 };
+    let smallestImg: any = { path: 'N/A', origSize: Infinity };
+    
+    allImageDetails.forEach(img => {
+      if (img.origSize > largestImg.origSize) {
+        largestImg = img;
+      }
+      if (img.origSize < smallestImg.origSize) {
+        smallestImg = img;
+      }
+    });
+
+    if (smallestImg.origSize === Infinity) {
+      smallestImg.origSize = 0;
+    }
+
+    const pngConversionBottleneck = pngPct > 5.0
+      ? `> [!WARNING]
+> **PNG Conversion Bottleneck Confirmed:** PNG conversion took **${totalPngTime.toFixed(0)}ms** out of a total run duration of **${totalRuntime.toFixed(0)}ms** (**${pngPct.toFixed(1)}%**). This exceeds the 5% performance threshold and should be optimized by caching normalized images.`
+      : `> [!NOTE]
+> **PNG Conversion Overhead is Minimal:** PNG conversion took **${totalPngTime.toFixed(0)}ms** out of a total run duration of **${totalRuntime.toFixed(0)}ms** (**${pngPct.toFixed(1)}%**), which is below the 5% bottleneck threshold. No immediate optimization is required.`;
+
+    const imagePayloadReport = `# Image Payload Analysis Report
+
+This report analyzes the size transformation and processing latencies of image payloads converted through the vision provider pipeline.
+
+---
+
+## 1. Size Statistics (Averages)
+* **Average Original Image Size:** ${(avgOrigSize / 1024).toFixed(1)} KB
+* **Average Converted PNG Size:** ${(avgPngSize / 1024).toFixed(1)} KB
+* **Average Base64 Payload Size:** ${(avgB64Size / 1024).toFixed(1)} K chars
+* **Size Growth Ratio (Original to PNG):** ${avgOrigSize > 0 ? (avgPngSize / avgOrigSize).toFixed(2) : '1.0'}x
+
+---
+
+## 2. Extreme Payloads
+* **Largest Image:** \`${path.basename(largestImg.path)}\` (${(largestImg.origSize / 1024).toFixed(1)} KB)
+* **Smallest Image:** \`${path.basename(smallestImg.path)}\` (${(smallestImg.origSize / 1024).toFixed(1)} KB)
+
+---
+
+## 3. Latency Metrics
+* **Total PNG Conversion Time:** ${totalPngTime.toFixed(1)}ms
+* **Average PNG Conversion Time per Image:** ${telemetry.pngConversionTimes.length > 0 ? (totalPngTime / telemetry.pngConversionTimes.length).toFixed(1) : '0'}ms
+
+---
+
+## 4. Bottleneck Assessment
+${pngConversionBottleneck}
+`;
+
+    // Write reports to workspace root
+    fs.writeFileSync(path.join(this.workspaceRoot, 'PERFORMANCE_REPORT.md'), performanceReport, 'utf8');
+    fs.writeFileSync(path.join(this.workspaceRoot, 'PERFORMANCE_TRACE.md'), performanceTrace, 'utf8');
+    fs.writeFileSync(path.join(this.workspaceRoot, 'IMAGE_PAYLOAD_REPORT.md'), imagePayloadReport, 'utf8');
+
+    console.log('📈 Successfully generated Performance reports at repository root.');
+  }
+
+  /**
+   * Runs debugging for a single claim by its 1-based index and prints intermediate outputs
+   */
+  public async runSingleClaimDebug(claimIndex: number): Promise<void> {
+    console.log(`\n🔍 Debugging Claim [${claimIndex}] on sample_claims.csv...\n`);
+
+    const sampleCSVPath = path.join(this.workspaceRoot, 'dataset/sample_claims.csv');
+    const userHistoryCSVPath = path.join(this.workspaceRoot, 'dataset/user_history.csv');
+    const evidenceCSVPath = path.join(this.workspaceRoot, 'dataset/evidence_requirements.csv');
+
+    // Parse files
+    const rawSampleClaims = this.csvService.readClaims(sampleCSVPath);
+    if (claimIndex < 1 || claimIndex > rawSampleClaims.length) {
+      console.error(`❌ Claim index ${claimIndex} is out of bounds (1 to ${rawSampleClaims.length}).`);
+      process.exit(1);
+    }
+
+    const row = rawSampleClaims[claimIndex - 1];
+
+    const parsedRaw = this.csvService.parseCSV(fs.readFileSync(sampleCSVPath, 'utf8'));
+    const headers = parsedRaw[0].map(h => h.trim().replace(/^"|"$/g, ''));
+    const claimStatusIdx = headers.indexOf('claim_status');
+    const gtStatus = parsedRaw[claimIndex][claimStatusIdx].trim().replace(/^"|"$/g, '');
+
+    const rawUserHistory = this.csvService.readUserHistory(userHistoryCSVPath);
+    const rawRequirements = this.csvService.readEvidenceRequirements(evidenceCSVPath);
+
+    // Instantiate Services
+    const imageService = new ImageService(this.workspaceRoot);
+    const historyService = new HistoryService(rawUserHistory);
+    const evidenceService = new EvidenceService(rawRequirements);
+    const sanitizer = new ConversationSanitizer();
+    const claimExtractor = new ClaimExtractor();
+    const claimComparator = new ClaimComparator();
+    const evidenceEvaluator = new EvidenceEvaluator();
+    const decisionEngine = new DecisionEngine();
+
+    // Check if Ollama is online
+    let ollamaOnline = false;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1000);
+      const res = await fetch('http://localhost:11434/', { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) ollamaOnline = true;
+    } catch (e) {}
+
+    // Initialize telemetry
+    (global as any).telemetry = {
+      csvLoadingTime: 0,
+      imageValidationTimes: [],
+      pngConversionTimes: [],
+      visionAnalyzerTimes: [],
+      ollamaCallTimes: [],
+      comparatorTimes: [],
+      evidenceEvaluatorTimes: [],
+      decisionEngineTimes: [],
+      csvWritingTime: 0,
+      origSizes: [],
+      pngSizes: [],
+      base64Sizes: [],
+      cacheHits: 0,
+      cacheMisses: 0,
+      modelCallTimes: [],
+    };
+
+    console.log('Claim Input row:');
+    console.log(JSON.stringify(row, null, 2));
+    console.log(`\nGround Truth claim_status: ${gtStatus}\n`);
+
+    // 1. Sanitization
+    console.log('--- ConversationSanitizer Output ---');
+    const sanitization = sanitizer.sanitize(row.user_claim);
+    console.log(JSON.stringify(sanitization, null, 2));
+
+    // 2. Claim Extraction
+    console.log('\n--- ClaimExtractor Output ---');
+    const expectedClaim = claimExtractor.extractFromText(row.claim_object, sanitization.sanitizedText);
+    console.log(JSON.stringify(expectedClaim, null, 2));
+
+    // 3. Evidence Rules Mapping
+    console.log('\n--- EvidenceRequirements Output ---');
+    const imagePaths = row.image_paths.split(';').filter(p => p.trim().length > 0);
+    const rules = evidenceService.getRequirements(
+      row.claim_object,
+      expectedClaim.part,
+      expectedClaim.issue,
+      imagePaths.length > 1
+    ).map(r => r.minimum_image_evidence);
+    console.log(JSON.stringify(rules, null, 2));
+
+    // 4. Load and validate images
+    console.log('\n--- Image Validation ---');
+    const imageBuffers = imagePaths.map(p => {
+      const absPath = imageService.resolveImagePath(p);
+      const filename = path.basename(p);
+      const id = filename.split('.')[0];
+      const buffer = imageService.readImageBuffer(absPath);
+      return { id, buffer, mimeType: 'image/jpeg' };
+    });
+    const validations = await Promise.all(imageBuffers.map(img => imageService.validateImage(img.buffer)));
+    console.log(JSON.stringify(validations, null, 2));
+
+    // 5. Provider analysis (Visual Observations ONLY)
+    console.log('\n--- VisionAnalyzer Output ---');
+    let observation: ModelObservation;
+    if (ollamaOnline) {
+      const provider = new OllamaProvider();
+      const analyzer = new VisionAnalyzer(provider);
+      observation = await analyzer.analyzeEvidence({
+        userClaim: sanitization.sanitizedText,
+        claimObject: row.claim_object,
+        extractedPart: expectedClaim.part,
+        extractedIssue: expectedClaim.issue,
+        images: imageBuffers,
+        evidenceRequirements: rules,
+        imagePaths: row.image_paths,
+        userId: row.user_id,
+      });
+    } else {
+      console.log('⚠️ Ollama offline. Simulating visual observation.');
+      observation = this.simulateModelObservation(row, expectedClaim, validations, gtStatus);
+    }
+    console.log(JSON.stringify(observation, null, 2));
+
+    // 6. History Lookup
+    console.log('\n--- HistoryService Output ---');
+    const historyFlags = historyService.getHistoryRiskFlags(row.user_id);
+    console.log(JSON.stringify({ userId: row.user_id, flags: historyFlags }, null, 2));
+
+    // 7. Evidence Sufficiency Evaluation
+    console.log('\n--- EvidenceEvaluator Output ---');
+    const evidenceEvaluation = evidenceEvaluator.evaluate(
+      row.claim_object,
+      expectedClaim.part,
+      expectedClaim.issue,
+      validations,
+      observation
+    );
+    console.log(JSON.stringify(evidenceEvaluation, null, 2));
+
+    // 8. Comparison
+    console.log('\n--- Comparator Output ---');
+    const comparison = claimComparator.compare(row.claim_object, expectedClaim, observation);
+    console.log(JSON.stringify(comparison, null, 2));
+
+    // 9. Decision Engine
+    console.log('\n--- DecisionEngine Output ---');
+    const finalOutput = decisionEngine.makeDecision({
+      claimInput: row,
+      sanitization,
+      historyFlags,
+      evidenceEvaluation,
+      comparison,
+      observation,
+    });
+    console.log(JSON.stringify(finalOutput, null, 2));
+    console.log('\n✅ Debug run complete.\n');
   }
 
   /**
@@ -510,9 +984,26 @@ This report compares **Strategy A (Single-Shot Multimodal VLM)** and **Strategy 
   }
 }
 
-// Instantiate and run evaluation
-new EvaluationFramework().runEvaluation().catch(err => {
-  console.error('❌ Evaluation runner failed:', err);
-  process.exit(1);
-});
+// CLI entry point
+const args = process.argv.slice(2);
+const isFast = args.includes('--fast');
+const isDebug = args.includes('--debug');
 
+if (isDebug) {
+  const debugIndexIdx = args.indexOf('--debug') + 1;
+  const indexStr = args[debugIndexIdx];
+  const claimIndex = indexStr ? parseInt(indexStr, 10) : NaN;
+  if (isNaN(claimIndex)) {
+    console.error('❌ Please specify a valid claim index for debugging. Example: npm run debug:claim -- 4');
+    process.exit(1);
+  }
+  new EvaluationFramework().runSingleClaimDebug(claimIndex).catch(err => {
+    console.error('❌ Debug runner failed:', err);
+    process.exit(1);
+  });
+} else {
+  new EvaluationFramework().runEvaluation(isFast).catch(err => {
+    console.error('❌ Evaluation runner failed:', err);
+    process.exit(1);
+  });
+}

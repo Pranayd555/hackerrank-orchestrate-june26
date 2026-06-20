@@ -6,12 +6,15 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "evaluate": "tsx src/evaluation/evaluator.ts",
+    "evaluate:fast": "tsx src/evaluation/evaluator.ts --fast",
+    "debug:claim": "tsx src/evaluation/evaluator.ts --debug",
     "build": "tsc"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",
     "dotenv": "^16.4.5",
     "sharp": "^0.33.4",
+    "undici": "^7.28.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
