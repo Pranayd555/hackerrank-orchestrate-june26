@@ -1,0 +1,140 @@
+Row 1 | User: user_001 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: rear_bumper, Issue: dent
+  Observed:  Part: rear_bumper, Issue: dent, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible dent on the rear_bumper, matching the claim.
+--------------------------------------------------------------------------------
+Row 2 | User: user_002 | Correct: NO
+  Expected Status: not_enough_information | Predicted: supported
+  Extracted: Part: front_bumper, Issue: scratch
+  Observed:  Part: front_bumper, Issue: scratch, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible scratch on the front_bumper, matching the claim.
+--------------------------------------------------------------------------------
+Row 3 | User: user_004 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: windshield, Issue: crack
+  Observed:  Part: windshield, Issue: crack, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible crack on the windshield, matching the claim.
+--------------------------------------------------------------------------------
+Row 4 | User: user_007 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: side_mirror, Issue: unknown
+  Observed:  Part: side_mirror, Issue: unknown, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible unknown on the side_mirror, matching the claim.
+--------------------------------------------------------------------------------
+Row 5 | User: user_005 | Correct: YES
+  Expected Status: contradicted | Predicted: contradicted
+  Extracted: Part: rear_bumper, Issue: unknown
+  Observed:  Part: rear_bumper, Issue: scratch, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: claim_mismatch
+  Decision Justification: A different issue (scratch) was visible on the claimed part compared to the claim (unknown).
+--------------------------------------------------------------------------------
+Row 6 | User: user_006 | Correct: YES
+  Expected Status: not_enough_information | Predicted: not_enough_information
+  Extracted: Part: headlight, Issue: crack
+  Observed:  Part: door, Issue: none, DamageVisible: false, PartVisible: false
+  Comparison Mismatch Flags: damage_not_visible
+  Decision Justification: The claimed part (headlight) is not visible in the images, so the claim cannot be verified.
+--------------------------------------------------------------------------------
+Row 7 | User: user_003 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: door, Issue: dent
+  Observed:  Part: door, Issue: dent, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible dent on the door, matching the claim.
+--------------------------------------------------------------------------------
+Row 8 | User: user_008 | Correct: YES
+  Expected Status: contradicted | Predicted: contradicted
+  Extracted: Part: hood, Issue: scratch
+  Observed:  Part: front_bumper, Issue: broken_part, DamageVisible: true, PartVisible: false
+  Comparison Mismatch Flags: claim_mismatch
+  Decision Justification: Damage was observed in the image set, but on the front_bumper rather than the claimed hood.
+--------------------------------------------------------------------------------
+Row 9 | User: user_009 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: screen, Issue: crack
+  Observed:  Part: screen, Issue: crack, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible crack on the screen, matching the claim.
+--------------------------------------------------------------------------------
+Row 10 | User: user_010 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: screen, Issue: broken_part
+  Observed:  Part: screen, Issue: broken_part, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible broken_part on the screen, matching the claim.
+--------------------------------------------------------------------------------
+Row 11 | User: user_011 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: screen, Issue: stain
+  Observed:  Part: screen, Issue: stain, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible stain on the screen, matching the claim.
+--------------------------------------------------------------------------------
+Row 12 | User: user_012 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: corner, Issue: dent
+  Observed:  Part: corner, Issue: dent, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible dent on the corner, matching the claim.
+--------------------------------------------------------------------------------
+Row 13 | User: user_018 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: screen, Issue: crack
+  Observed:  Part: screen, Issue: crack, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible crack on the screen, matching the claim.
+--------------------------------------------------------------------------------
+Row 14 | User: user_020 | Correct: YES
+  Expected Status: contradicted | Predicted: contradicted
+  Extracted: Part: trackpad, Issue: unknown
+  Observed:  Part: trackpad, Issue: none, DamageVisible: false, PartVisible: true
+  Comparison Mismatch Flags: damage_not_visible
+  Decision Justification: The claimed part (trackpad) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------
+Row 15 | User: user_015 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: package_corner, Issue: crushed_packaging
+  Observed:  Part: package_corner, Issue: crushed_packaging, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible crushed_packaging on the package_corner, matching the claim.
+--------------------------------------------------------------------------------
+Row 16 | User: user_030 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: package_side, Issue: crushed_packaging
+  Observed:  Part: package_side, Issue: crushed_packaging, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible crushed_packaging on the package_side, matching the claim.
+--------------------------------------------------------------------------------
+Row 17 | User: user_031 | Correct: YES
+  Expected Status: supported | Predicted: supported
+  Extracted: Part: contents, Issue: torn_packaging
+  Observed:  Part: contents, Issue: torn_packaging, DamageVisible: true, PartVisible: true
+  Comparison Mismatch Flags: 
+  Decision Justification: The visual evidence shows a visible torn_packaging on the contents, matching the claim. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+Row 18 | User: user_032 | Correct: YES
+  Expected Status: not_enough_information | Predicted: not_enough_information
+  Extracted: Part: contents, Issue: torn_packaging
+  Observed:  Part: box, Issue: none, DamageVisible: false, PartVisible: false
+  Comparison Mismatch Flags: damage_not_visible
+  Decision Justification: The claimed part (contents) is not visible in the images, so the claim cannot be verified.
+--------------------------------------------------------------------------------
+Row 19 | User: user_033 | Correct: YES
+  Expected Status: contradicted | Predicted: contradicted
+  Extracted: Part: contents, Issue: crushed_packaging
+  Observed:  Part: unknown, Issue: none, DamageVisible: false, PartVisible: false
+  Comparison Mismatch Flags: wrong_object, damage_not_visible, claim_mismatch
+  Decision Justification: The image set shows a different object (creased leather) than the claimed package.
+--------------------------------------------------------------------------------
+Row 20 | User: user_034 | Correct: YES
+  Expected Status: contradicted | Predicted: contradicted
+  Extracted: Part: seal, Issue: crushed_packaging
+  Observed:  Part: seal, Issue: none, DamageVisible: false, PartVisible: true
+  Comparison Mismatch Flags: damage_not_visible
+  Decision Justification: The claimed part (seal) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------

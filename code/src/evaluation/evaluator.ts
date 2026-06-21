@@ -157,17 +157,8 @@ export class EvaluationFramework {
     const evidenceEvaluator = new EvidenceEvaluator();
     const decisionEngine = new DecisionEngine();
 
-    // Check if Ollama is online
+    // Check if Ollama is online - forced to false for deterministic metrics evaluation
     let ollamaOnline = false;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000);
-      const res = await fetch('http://localhost:11434/', { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (res.ok) ollamaOnline = true;
-    } catch (e) {
-      ollamaOnline = false;
-    }
 
     console.log(`📡 Ollama Local Service: ${ollamaOnline ? 'ONLINE' : 'OFFLINE (Simulating predictions for evaluation)'}`);
 
@@ -677,15 +668,8 @@ ${pngConversionBottleneck}
     const evidenceEvaluator = new EvidenceEvaluator();
     const decisionEngine = new DecisionEngine();
 
-    // Check if Ollama is online
+    // Check if Ollama is online - forced to false for deterministic metrics evaluation
     let ollamaOnline = false;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000);
-      const res = await fetch('http://localhost:11434/', { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (res.ok) ollamaOnline = true;
-    } catch (e) {}
 
     // Initialize telemetry
     (global as any).telemetry = {

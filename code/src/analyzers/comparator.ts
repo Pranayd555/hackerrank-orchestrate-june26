@@ -67,13 +67,28 @@ export class ClaimComparator {
       mismatchFlags.push('wrong_object_part');
     }
 
-    // 3. Check Issue Match
+    // 3. Define Semantic Damage Families
+    const vehicleFamily = ['dent', 'scratch', 'crack', 'broken_part', 'glass_shatter', 'missing_part'];
+    const packageFamily = ['torn_packaging', 'crushed_packaging', 'water_damage', 'stain'];
+    const laptopFamily = ['crack', 'broken_part', 'water_damage', 'stain'];
+
+    let isSameFamily = false;
+    if (claimObject === 'car' && vehicleFamily.includes(expectedIssue) && vehicleFamily.includes(observedIssue)) {
+      isSameFamily = true;
+    } else if (claimObject === 'package' && packageFamily.includes(expectedIssue) && packageFamily.includes(observedIssue)) {
+      isSameFamily = true;
+    } else if (claimObject === 'laptop' && laptopFamily.includes(expectedIssue) && laptopFamily.includes(observedIssue)) {
+      isSameFamily = true;
+    }
+
+    // 4. Check Issue Match (Exact, Substring, or Semantic Damage Family matching)
     if (expectedIssue === observedIssue || 
-        (observedIssue !== 'unknown' && (observedIssue.includes(expectedIssue) || expectedIssue.includes(observedIssue)))) {
+        (observedIssue !== 'unknown' && (observedIssue.includes(expectedIssue) || expectedIssue.includes(observedIssue))) ||
+        (observed.damage_visible && isSameFamily)) {
       issueMatch = true;
     }
 
-    // Map packaging issues closely
+    // Map packaging issues closely for legacy compatibility
     if (claimObject === 'package') {
       if ((expectedIssue === 'crushed_packaging' && observedIssue === 'crushed') ||
           (expectedIssue === 'torn_packaging' && observedIssue === 'torn') ||
@@ -82,7 +97,7 @@ export class ClaimComparator {
       }
     }
 
-    // 4. Handle Visual Mismatch Flags
+    // 5. Handle Visual Mismatch Flags
     if (observed.part_visible && !observed.damage_visible) {
       // The expected part is visible but no damage of any type is visible
       mismatchFlags.push('damage_not_visible');
@@ -99,7 +114,11 @@ export class ClaimComparator {
       mismatchFlags.push('damage_not_visible');
       justification = `The claimed part (${expected.part}) is not visible in the submitted images.`;
     } else if (partMatch && issueMatch) {
-      justification = `The visual evidence shows a visible ${observed.visible_issue} on the ${observed.visible_part}, matching the claim.`;
+      if (expectedIssue === observedIssue) {
+        justification = `The visual evidence shows a visible ${observed.visible_issue} on the ${observed.visible_part}, matching the claim.`;
+      } else {
+        justification = `The visual evidence shows a visible ${observed.visible_issue} on the ${observed.visible_part}, which is semantically related to the claimed ${expected.issue}.`;
+      }
     }
 
     // Overwrite description if wrong object is shown
@@ -119,3 +138,4 @@ export class ClaimComparator {
     };
   }
 }
+
