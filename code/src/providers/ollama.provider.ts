@@ -57,7 +57,18 @@ export class OllamaProvider implements IVisionProvider {
       console.log('CACHE HIT');
       const telemetry = (global as any).telemetry || {};
       telemetry.cacheHits = (telemetry.cacheHits || 0) + 1;
-      return cache[cacheKey];
+      
+      const cachedVal = cache[cacheKey];
+      if (cachedVal.observations && cachedVal.observations.startsWith('Parsed from thinking: ')) {
+        const thinking = cachedVal.observations.replace('Parsed from thinking: ', '');
+        const parsed = this.parseFromThinking(thinking, input.claimObject);
+        cachedVal.visible_object = parsed.visible_object;
+        cachedVal.visible_part = parsed.visible_part;
+        cachedVal.visible_issue = parsed.visible_issue;
+        cachedVal.damage_visible = parsed.visible_issue !== 'none' && parsed.visible_issue !== 'unknown';
+        cachedVal.part_visible = parsed.visible_part !== 'none' && parsed.visible_part !== 'unknown';
+      }
+      return cachedVal;
     }
 
     console.log('CACHE MISS');
@@ -222,89 +233,111 @@ Do NOT wrap the JSON in markdown code blocks. Start directly with '{'.
     }
   }
 
+
+  private testRegex(text: string, keywords: string[]): boolean {
+    const escaped = keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`\\b(${escaped.join('|')})\\b`, 'i');
+    return pattern.test(text);
+  }
+
   private parseFromThinking(thinking: string, claimObject: string): any {
     const text = thinking.toLowerCase();
     
     // 1. Identify visible_object
     let visible_object = claimObject;
-    if (text.includes('car') || text.includes('vehicle') || text.includes('bumper') || text.includes('mirror') || text.includes('windshield')) {
+    if (this.testRegex(text, ['car', 'cars', 'vehicle', 'vehicles', 'sedan', 'sedans', 'suv', 'suvs', 'bumper', 'bumpers', 'mirror', 'mirrors', 'windshield', 'windshields'])) {
       visible_object = 'car';
-    } else if (text.includes('laptop') || text.includes('screen') || text.includes('keyboard') || text.includes('hinge') || text.includes('lid') || text.includes('trackpad')) {
+    } else if (this.testRegex(text, ['laptop', 'laptops', 'notebook', 'screen', 'screens', 'keyboard', 'keyboards', 'hinge', 'hinges', 'lid', 'lids', 'trackpad', 'trackpads'])) {
       visible_object = 'laptop';
-    } else if (text.includes('package') || text.includes('box') || text.includes('mailer') || text.includes('seal') || text.includes('contents') || text.includes('cardboard')) {
+    } else if (this.testRegex(text, ['package', 'packages', 'box', 'boxes', 'mailer', 'mailers', 'seal', 'seals', 'contents', 'cardboard'])) {
       visible_object = 'package';
     }
 
     // 2. Identify visible_part
     let visible_part = 'unknown';
     if (visible_object === 'car') {
-      if (text.includes('front bumper') || text.includes('front_bumper') || text.includes('front end') || text.includes('grille')) {
+      if (this.testRegex(text, ['front bumper', 'front_bumper', 'front end', 'grille', 'parachoques delantero'])) {
         visible_part = 'front_bumper';
-      } else if (text.includes('rear bumper') || text.includes('rear_bumper') || text.includes('back bumper') || text.includes('rear end') || text.includes('back of the car')) {
+      } else if (this.testRegex(text, ['rear bumper', 'rear_bumper', 'back bumper', 'rear end', 'back of the car', 'parachoques trasero'])) {
         visible_part = 'rear_bumper';
-      } else if (text.includes('windshield') || text.includes('glass') || text.includes('window')) {
+      } else if (this.testRegex(text, ['windshield', 'front glass', 'wind shield'])) {
         visible_part = 'windshield';
-      } else if (text.includes('mirror') || text.includes('side mirror') || text.includes('side_mirror')) {
+      } else if (this.testRegex(text, ['side mirror', 'side_mirror', 'espejo'])) {
         visible_part = 'side_mirror';
-      } else if (text.includes('headlight') || text.includes('head light') || text.includes('headlamp')) {
+      } else if (this.testRegex(text, ['headlight', 'head light', 'headlamp', 'headlamps'])) {
         visible_part = 'headlight';
-      } else if (text.includes('taillight') || text.includes('tail light') || text.includes('tail_light')) {
+      } else if (this.testRegex(text, ['taillight', 'tail light', 'tail_light', 'back light'])) {
         visible_part = 'taillight';
-      } else if (text.includes('door') || text.includes('panel')) {
+      } else if (this.testRegex(text, ['door', 'doors', 'puerta', 'puertas'])) {
         visible_part = 'door';
+      } else if (this.testRegex(text, ['hood', 'hoods', 'capo'])) {
+        visible_part = 'hood';
       }
     } else if (visible_object === 'laptop') {
-      if (text.includes('screen') || text.includes('display') || text.includes('panel')) {
+      if (this.testRegex(text, ['screen', 'display', 'panel', 'pantalla'])) {
         visible_part = 'screen';
-      } else if (text.includes('keyboard') || text.includes('keys')) {
+      } else if (this.testRegex(text, ['keyboard', 'keys', 'keycaps', 'teclado'])) {
         visible_part = 'keyboard';
-      } else if (text.includes('trackpad') || text.includes('touchpad')) {
+      } else if (this.testRegex(text, ['trackpad', 'touchpad'])) {
         visible_part = 'trackpad';
-      } else if (text.includes('hinge') || text.includes('hinges')) {
+      } else if (this.testRegex(text, ['hinge', 'hinges'])) {
         visible_part = 'hinge';
-      } else if (text.includes('lid') || text.includes('cover') || text.includes('outer shell')) {
+      } else if (this.testRegex(text, ['lid', 'cover', 'outer shell'])) {
         visible_part = 'lid';
-      } else if (text.includes('corner') || text.includes('edge')) {
+      } else if (this.testRegex(text, ['corner', 'edge'])) {
         visible_part = 'corner';
       }
     } else if (visible_object === 'package') {
-      if (text.includes('seal') || text.includes('tape') || text.includes('closing')) {
+      if (this.testRegex(text, ['seal', 'tape', 'closing'])) {
         visible_part = 'seal';
-      } else if (text.includes('contents') || text.includes('inside') || text.includes('item')) {
+      } else if (this.testRegex(text, ['contents', 'inside', 'item'])) {
         visible_part = 'contents';
-      } else if (text.includes('side') || text.includes('panel')) {
+      } else if (this.testRegex(text, ['side', 'panel'])) {
         visible_part = 'package_side';
-      } else if (text.includes('corner') || text.includes('edge')) {
+      } else if (this.testRegex(text, ['corner', 'edge'])) {
         visible_part = 'package_corner';
-      } else if (text.includes('box') || text.includes('carton') || text.includes('mailer') || text.includes('package')) {
+      } else if (this.testRegex(text, ['box', 'carton', 'mailer', 'package'])) {
         visible_part = 'box';
       }
     }
 
     // 3. Identify visible_issue
     let visible_issue = 'unknown';
-    if (text.includes('shatter') || text.includes('shattered')) {
-      visible_issue = 'glass_shatter';
-    } else if (text.includes('missing') || text.includes('gone') || text.includes('lost') || text.includes('detached')) {
-      visible_issue = 'missing_part';
-    } else if (text.includes('broken') || text.includes('damage') || text.includes('smash') || text.includes('smashed') || text.includes('wrecked') || text.includes('crushed')) {
-      if (claimObject === 'package') {
-        visible_issue = 'crushed_packaging';
-      } else {
-        visible_issue = 'broken_part';
+
+    // Check for clear indication of no damage/undamaged/intact first
+    const hasNoneIndicators = this.testRegex(text, [
+      'undamaged', 'intact', 'no damage', 'no visible damage', 'no visible issue', 'no visible issues',
+      'looks normal', 'smooth and undamaged', 'without any damage', 'no cracks', 'no scratches',
+      'no dents', 'clean and intact', 'all keys look intact', 'smooth and clean', 'no obvious damage',
+      'issue is none', 'issue would be none', 'visible_issue: none', 'visible_issue is none', 'not damaged'
+    ]);
+
+    if (hasNoneIndicators && !this.testRegex(text, ['but there is', 'however'])) {
+      visible_issue = 'none';
+    } else {
+      if (this.testRegex(text, ['shatter', 'shattered', 'shattering'])) {
+        visible_issue = 'glass_shatter';
+      } else if (this.testRegex(text, ['missing', 'gone', 'lost', 'detached'])) {
+        visible_issue = 'missing_part';
+      } else if (this.testRegex(text, ['crack', 'cracked', 'cracks'])) {
+        visible_issue = 'crack';
+      } else if (this.testRegex(text, ['dent', 'dented', 'dents', 'hail'])) {
+        visible_issue = 'dent';
+      } else if (this.testRegex(text, ['scratch', 'scratched', 'scratches', 'scrape', 'scraped', 'scrapes'])) {
+        visible_issue = 'scratch';
+      } else if (this.testRegex(text, ['torn', 'rip', 'ripped', 'teared', 'open'])) {
+        visible_issue = 'torn_packaging';
+      } else if (this.testRegex(text, ['water', 'wet', 'leak', 'liquid', 'moisture'])) {
+        visible_issue = 'water_damage';
+      } else if (this.testRegex(text, ['stain', 'stained', 'stains', 'oily', 'oil'])) {
+        visible_issue = 'stain';
+      } else if (this.testRegex(text, ['broken', 'damage', 'damaged', 'smash', 'smashed', 'wrecked', 'crushed', 'crush'])) {
+        if (claimObject === 'package') {
+          visible_issue = 'crushed_packaging';
+        } else {
+          visible_issue = 'broken_part';
+        }
       }
-    } else if (text.includes('crack') || text.includes('cracked')) {
-      visible_issue = 'crack';
-    } else if (text.includes('dent') || text.includes('dented') || text.includes('depression')) {
-      visible_issue = 'dent';
-    } else if (text.includes('scratch') || text.includes('scratched') || text.includes('scrape') || text.includes('scraped')) {
-      visible_issue = 'scratch';
-    } else if (text.includes('torn') || text.includes('rip') || text.includes('ripped')) {
-      visible_issue = 'torn_packaging';
-    } else if (text.includes('water') || text.includes('wet') || text.includes('leak') || text.includes('liquid') || text.includes('moisture')) {
-      visible_issue = 'water_damage';
-    } else if (text.includes('stain') || text.includes('stained') || text.includes('discolor')) {
-      visible_issue = 'stain';
     }
 
     return {
@@ -315,3 +348,4 @@ Do NOT wrap the JSON in markdown code blocks. Start directly with '{'.
     };
   }
 }
+

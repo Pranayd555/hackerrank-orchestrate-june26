@@ -1,0 +1,141 @@
+Parsed old: 44, new: 44
+
+CASE 003 (user: user_005)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: door/broken_part | New Part/Issue: door/dent
+  Old Justification: A different issue (broken_part) was visible on the claimed part compared to the claim (dent).
+  New Justification: The visual evidence shows a visible dent on the door, matching the claim. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 008 (user: user_011)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: headlight/glass_shatter | New Part/Issue: headlight/glass_shatter
+  Old Justification: A different issue (glass_shatter) was visible on the claimed part compared to the claim (broken_part).
+  New Justification: The visual evidence shows a visible glass_shatter on the headlight, which is semantically related to the claimed broken_part.
+--------------------------------------------------------------------------------
+CASE 014 (user: user_014)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: windshield/glass_shatter | New Part/Issue: windshield/glass_shatter
+  Old Justification: A different issue (glass_shatter) was visible on the claimed part compared to the claim (crack).
+  New Justification: The visual evidence shows a visible glass_shatter on the windshield, which is semantically related to the claimed crack. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 026 (user: user_026)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: unknown/unknown
+  Old Justification: The claimed part (screen) is not visible in the images, so the claim cannot be verified.
+  New Justification: The image set shows a different object (car) than the claimed laptop.
+--------------------------------------------------------------------------------
+CASE 028 (user: user_028)
+  Old Status: supported | New Status: contradicted
+  Old Part/Issue: screen/broken_part | New Part/Issue: screen/torn_packaging
+  Old Justification: The visual evidence shows a visible broken_part on the screen, matching the claim. However, user history indicates prior risk flags.
+  New Justification: A different issue (torn_packaging) was visible on the claimed part compared to the claim (broken_part).
+--------------------------------------------------------------------------------
+CASE 029 (user: user_029)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: seal/unknown
+  Old Justification: The claimed part (package_corner) is not visible in the images, so the claim cannot be verified.
+  New Justification: The claimed part (package_corner) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------
+CASE 031 (user: user_031)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: box/unknown
+  Old Justification: The claimed part (label) is not visible in the images, so the claim cannot be verified.
+  New Justification: The claimed part (label) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------
+CASE 032 (user: user_032)
+  Old Status: not_enough_information | New Status: supported
+  Old Part/Issue: unknown/unknown | New Part/Issue: contents/torn_packaging
+  Old Justification: The claimed part (package_side) is not visible in the images, so the claim cannot be verified.
+  New Justification: The visual evidence shows a visible torn_packaging on the contents, matching the claim.
+--------------------------------------------------------------------------------
+CASE 034 (user: user_034)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: contents/torn_packaging
+  Old Justification: The claimed part (package_corner) is not visible in the images, so the claim cannot be verified.
+  New Justification: Damage was observed in the image set, but on the contents rather than the claimed package_corner.
+--------------------------------------------------------------------------------
+CASE 036 (user: user_036)
+  Old Status: not_enough_information | New Status: supported
+  Old Part/Issue: unknown/unknown | New Part/Issue: box/water_damage
+  Old Justification: The claimed part (box) is not visible in the images, so the claim cannot be verified.
+  New Justification: The visual evidence shows a visible water_damage on the box, matching the claim. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 037 (user: user_037)
+  Old Status: not_enough_information | New Status: supported
+  Old Part/Issue: unknown/unknown | New Part/Issue: contents/crushed_packaging
+  Old Justification: The claimed part (contents) is not visible in the images, so the claim cannot be verified.
+  New Justification: The visual evidence shows a visible crushed_packaging on the contents, matching the claim. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 038 (user: user_038)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: contents/unknown
+  Old Justification: The claimed part (package_side) is not visible in the images, so the claim cannot be verified.
+  New Justification: The claimed part (contents) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------
+CASE 039 (user: user_039)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: box/torn_packaging
+  Old Justification: The claimed part (contents) is not visible in the images, so the claim cannot be verified.
+  New Justification: Damage was observed in the image set, but on the box rather than the claimed contents.
+--------------------------------------------------------------------------------
+CASE 040 (user: user_040)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: unknown/unknown
+  Old Justification: The claimed part (contents) is not visible in the images, so the claim cannot be verified.
+  New Justification: The image set shows a different object (laptop) than the claimed package.
+--------------------------------------------------------------------------------
+CASE 042 (user: user_042)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: rear_bumper/broken_part | New Part/Issue: rear_bumper/crack
+  Old Justification: A different issue (broken_part) was visible on the claimed part compared to the claim (crack).
+  New Justification: The visual evidence shows a visible crack on the rear_bumper, matching the claim.
+--------------------------------------------------------------------------------
+CASE 044 (user: user_044)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: screen/glass_shatter | New Part/Issue: screen/crack
+  Old Justification: A different issue (glass_shatter) was visible on the claimed part compared to the claim (broken_part).
+  New Justification: The visual evidence shows a visible crack on the screen, which is semantically related to the claimed broken_part. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 045 (user: user_045)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: unknown/unknown
+  Old Justification: The claimed part (screen) is not visible in the images, so the claim cannot be verified.
+  New Justification: The image set shows a different object (car) than the claimed laptop.
+--------------------------------------------------------------------------------
+CASE 046 (user: user_046)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: side_mirror/broken_part | New Part/Issue: side_mirror/broken_part
+  Old Justification: A different issue (broken_part) was visible on the claimed part compared to the claim (dent).
+  New Justification: The visual evidence shows a visible broken_part on the side_mirror, matching the claim. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 048 (user: user_034)
+  Old Status: not_enough_information | New Status: supported
+  Old Part/Issue: unknown/unknown | New Part/Issue: box/torn_packaging
+  Old Justification: The claimed part (box) is not visible in the images, so the claim cannot be verified.
+  New Justification: The visual evidence shows a visible torn_packaging on the box, which is semantically related to the claimed crushed_packaging. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 050 (user: user_022)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: screen/broken_part | New Part/Issue: screen/crack
+  Old Justification: A different issue (broken_part) was visible on the claimed part compared to the claim (crack).
+  New Justification: The visual evidence shows a visible crack on the screen, matching the claim.
+--------------------------------------------------------------------------------
+CASE 051 (user: user_016)
+  Old Status: contradicted | New Status: supported
+  Old Part/Issue: door/broken_part | New Part/Issue: door/dent
+  Old Justification: A different issue (broken_part) was visible on the claimed part compared to the claim (dent).
+  New Justification: The visual evidence shows a visible dent on the door, matching the claim. However, user history indicates prior risk flags.
+--------------------------------------------------------------------------------
+CASE 052 (user: user_033)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: contents/unknown
+  Old Justification: The claimed part (package_corner) is not visible in the images, so the claim cannot be verified.
+  New Justification: The claimed part (package_corner) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------
+CASE 055 (user: user_040)
+  Old Status: not_enough_information | New Status: contradicted
+  Old Part/Issue: unknown/unknown | New Part/Issue: box/unknown
+  Old Justification: The claimed part (seal) is not visible in the images, so the claim cannot be verified.
+  New Justification: The claimed part (seal) is visible in the images, but no damage is visible.
+--------------------------------------------------------------------------------
+Total changed claims: 23

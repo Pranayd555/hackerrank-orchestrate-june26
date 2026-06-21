@@ -82,8 +82,23 @@ export class DecisionEngine {
     let object_part: ObjectPart = 'unknown';
     let justification = '';
 
-    // 1. Determine claim_status based on Decision Rules
-    if (!evidenceEvaluation.valid_image || !evidenceEvaluation.evidence_standard_met) {
+    // Check new business rules: Different object or different damaged part override NEI
+    const isWrongObject = comparison.mismatchFlags.includes('wrong_object');
+    const isDifferentDamagedPart = !comparison.partMatch && observation.damage_visible && observation.visible_part !== 'unknown';
+
+    if (isWrongObject || isDifferentDamagedPart) {
+      claim_status = 'contradicted';
+      justification = comparison.justification;
+      if (isWrongObject) {
+        issue_type = 'unknown';
+        object_part = 'unknown';
+        severity = 'low';
+      } else {
+        issue_type = observation.visible_issue as IssueType;
+        object_part = observation.visible_part as ObjectPart;
+        severity = this.determineSeverity(claimInput.claim_object, object_part, issue_type, true);
+      }
+    } else if (!evidenceEvaluation.valid_image || !evidenceEvaluation.evidence_standard_met) {
       claim_status = 'not_enough_information';
       issue_type = 'unknown';
       object_part = 'unknown';
@@ -91,7 +106,7 @@ export class DecisionEngine {
       justification = evidenceEvaluation.evidence_standard_met_reason;
     } else {
       // Evidence is sufficient, evaluate comparison details
-      if (comparison.partMatch && comparison.issueMatch && observation.damage_visible) {
+      if (comparison.partMatch && comparison.issueMatch && observation.damage_visible && !comparison.mismatchFlags.includes('wrong_object')) {
         claim_status = 'supported';
         issue_type = observation.visible_issue as IssueType;
         object_part = observation.visible_part as ObjectPart;
@@ -125,7 +140,7 @@ export class DecisionEngine {
     }
 
     // Double check specific not_enough_information triggers
-    if (!observation.part_visible && claim_status !== 'not_enough_information') {
+    if (!observation.part_visible && claim_status !== 'not_enough_information' && !isWrongObject && !isDifferentDamagedPart) {
       claim_status = 'not_enough_information';
       issue_type = 'unknown';
       object_part = 'unknown';
@@ -191,8 +206,8 @@ export class DecisionEngine {
       image_paths: claimInput.image_paths,
       user_claim: claimInput.user_claim,
       claim_object: claimInput.claim_object,
-      evidence_standard_met: evidenceEvaluation.evidence_standard_met,
-      evidence_standard_met_reason: evidenceEvaluation.evidence_standard_met_reason,
+      evidence_standard_met: (isWrongObject || isDifferentDamagedPart) ? true : evidenceEvaluation.evidence_standard_met,
+      evidence_standard_met_reason: (isWrongObject || isDifferentDamagedPart) ? justification : evidenceEvaluation.evidence_standard_met_reason,
       risk_flags,
       issue_type,
       object_part,

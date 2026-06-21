@@ -6,9 +6,15 @@ export interface ExtractedClaim {
 }
 
 export class ClaimExtractor {
+  private containsKeyword(text: string, keywords: string[]): boolean {
+    const escaped = keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`\\b(${escaped.join('|')})\\b`, 'i');
+    return pattern.test(text);
+  }
+
   /**
    * Deterministically extracts the claimed object part and issue type from the sanitized conversation text
-   * using multilingual keyword-matching heuristics.
+   * using multilingual keyword-matching heuristics with strict word boundaries.
    */
   public extractFromText(claimObject: ClaimObject, text: string): ExtractedClaim {
     const lower = text.toLowerCase();
@@ -18,42 +24,42 @@ export class ClaimExtractor {
       let issue: IssueType = 'unknown';
 
       // 1. Part matching
-      if (lower.includes('rear bumper') || lower.includes('back bumper') || lower.includes('rear bumper') || lower.includes('parachoques trasero')) {
+      if (this.containsKeyword(lower, ['rear bumper', 'back bumper', 'parachoques trasero'])) {
         part = 'rear_bumper';
-      } else if (lower.includes('front bumper') || lower.includes('parachoques delantero')) {
+      } else if (this.containsKeyword(lower, ['front bumper', 'parachoques delantero'])) {
         part = 'front_bumper';
-      } else if (lower.includes('windshield') || lower.includes('front glass') || lower.includes('wind shield')) {
+      } else if (this.containsKeyword(lower, ['windshield', 'front glass', 'wind shield'])) {
         part = 'windshield';
-      } else if (lower.includes('side mirror') || lower.includes('espejo') || lower.includes('left mirror') || lower.includes('right mirror')) {
+      } else if (this.containsKeyword(lower, ['side mirror', 'espejo', 'left mirror', 'right mirror'])) {
         part = 'side_mirror';
-      } else if (lower.includes('taillight') || lower.includes('tail light') || lower.includes('back light')) {
+      } else if (this.containsKeyword(lower, ['taillight', 'tail light', 'back light'])) {
         part = 'taillight';
-      } else if (lower.includes('headlight') || lower.includes('head light')) {
+      } else if (this.containsKeyword(lower, ['headlight', 'head light'])) {
         part = 'headlight';
-      } else if (lower.includes('door') || lower.includes('puerta')) {
+      } else if (this.containsKeyword(lower, ['door', 'puerta'])) {
         part = 'door';
-      } else if (lower.includes('hood') || lower.includes('capo') || lower.includes('top panel')) {
+      } else if (this.containsKeyword(lower, ['hood', 'capo', 'top panel'])) {
         part = 'hood';
-      } else if (lower.includes('fender')) {
+      } else if (this.containsKeyword(lower, ['fender'])) {
         part = 'fender';
-      } else if (lower.includes('quarter panel')) {
+      } else if (this.containsKeyword(lower, ['quarter panel'])) {
         part = 'quarter_panel';
-      } else if (lower.includes('body') || lower.includes('panel')) {
+      } else if (this.containsKeyword(lower, ['body', 'panel'])) {
         part = 'body';
       }
 
       // 2. Issue matching
-      if (lower.includes('shatter') || lower.includes('shattered')) {
+      if (this.containsKeyword(lower, ['shatter', 'shattered'])) {
         issue = 'glass_shatter';
-      } else if (lower.includes('crack') || lower.includes('cracked')) {
+      } else if (this.containsKeyword(lower, ['crack', 'cracked'])) {
         issue = 'crack';
-      } else if (lower.includes('dent') || lower.includes('dented') || lower.includes('bump')) {
+      } else if (this.containsKeyword(lower, ['dent', 'dented', 'bump', 'bumps', 'bumped', 'hail'])) {
         issue = 'dent';
-      } else if (lower.includes('scratch') || lower.includes('scratched') || lower.includes('scrape') || lower.includes('mark')) {
+      } else if (this.containsKeyword(lower, ['scratch', 'scratched', 'scrape', 'scraped', 'mark', 'marks'])) {
         issue = 'scratch';
-      } else if (lower.includes('broken') || lower.includes('toot')) {
+      } else if (this.containsKeyword(lower, ['broken', 'toot'])) {
         issue = 'broken_part';
-      } else if (lower.includes('missing') || lower.includes('lost') || lower.includes('faltan')) {
+      } else if (this.containsKeyword(lower, ['missing', 'lost', 'faltan'])) {
         issue = 'missing_part';
       }
 
@@ -65,38 +71,38 @@ export class ClaimExtractor {
       let issue: IssueType = 'unknown';
 
       // 1. Part matching
-      if (lower.includes('screen') || lower.includes('display') || lower.includes('pantalla')) {
+      if (this.containsKeyword(lower, ['screen', 'display', 'pantalla'])) {
         part = 'screen';
-      } else if (lower.includes('keyboard') || lower.includes('keycap') || lower.includes('keys') || lower.includes('teclado') || lower.includes('teclas')) {
+      } else if (this.containsKeyword(lower, ['keyboard', 'keycap', 'keycaps', 'keys', 'teclado', 'teclas'])) {
         part = 'keyboard';
-      } else if (lower.includes('trackpad') || lower.includes('touchpad') || lower.includes('palm-rest') || lower.includes('palm rest')) {
+      } else if (this.containsKeyword(lower, ['trackpad', 'touchpad', 'palm-rest', 'palm rest'])) {
         part = 'trackpad';
-      } else if (lower.includes('hinge') || lower.includes('mechanically')) {
+      } else if (this.containsKeyword(lower, ['hinge', 'hinges', 'mechanically'])) {
         part = 'hinge';
-      } else if (lower.includes('lid') || lower.includes('outer lid')) {
+      } else if (this.containsKeyword(lower, ['lid', 'outer lid'])) {
         part = 'lid';
-      } else if (lower.includes('corner')) {
+      } else if (this.containsKeyword(lower, ['corner', 'corners'])) {
         part = 'corner';
-      } else if (lower.includes('port') || lower.includes('ports')) {
+      } else if (this.containsKeyword(lower, ['port', 'ports'])) {
         part = 'port';
-      } else if (lower.includes('base') || lower.includes('bottom')) {
+      } else if (this.containsKeyword(lower, ['base', 'bottom'])) {
         part = 'base';
-      } else if (lower.includes('body') || lower.includes('outer body') || lower.includes('edge')) {
+      } else if (this.containsKeyword(lower, ['body', 'outer body', 'edge'])) {
         part = 'body';
       }
 
       // 2. Issue matching
-      if (lower.includes('crack') || lower.includes('cracked') || lower.includes('shattered')) {
+      if (this.containsKeyword(lower, ['crack', 'cracked', 'shattered'])) {
         issue = 'crack';
-      } else if (lower.includes('stain') || lower.includes('liquid') || lower.includes('spill') || lower.includes('coffee') || lower.includes('water')) {
+      } else if (this.containsKeyword(lower, ['stain', 'stained', 'liquid', 'spill', 'spills', 'coffee', 'water'])) {
         issue = 'stain';
-      } else if (lower.includes('missing') || lower.includes('came off') || lower.includes('faltan')) {
+      } else if (this.containsKeyword(lower, ['missing', 'came off', 'faltan'])) {
         issue = 'missing_part';
-      } else if (lower.includes('dent') || lower.includes('dented')) {
+      } else if (this.containsKeyword(lower, ['dent', 'dented'])) {
         issue = 'dent';
-      } else if (lower.includes('scratch') || lower.includes('scratched')) {
+      } else if (this.containsKeyword(lower, ['scratch', 'scratched'])) {
         issue = 'scratch';
-      } else if (lower.includes('broken')) {
+      } else if (this.containsKeyword(lower, ['broken'])) {
         issue = 'broken_part';
       }
 
@@ -108,28 +114,28 @@ export class ClaimExtractor {
       let issue: IssueType = 'unknown';
 
       // 1. Part matching
-      if (lower.includes('corner')) {
+      if (this.containsKeyword(lower, ['corner', 'corners'])) {
         part = 'package_corner';
-      } else if (lower.includes('side')) {
+      } else if (this.containsKeyword(lower, ['side', 'sides'])) {
         part = 'package_side';
-      } else if (lower.includes('seal') || lower.includes('tape') || lower.includes('flap')) {
+      } else if (this.containsKeyword(lower, ['seal', 'tape', 'flap', 'flaps'])) {
         part = 'seal';
-      } else if (lower.includes('label')) {
+      } else if (this.containsKeyword(lower, ['label', 'labels'])) {
         part = 'label';
-      } else if (lower.includes('contents') || lower.includes('item') || lower.includes('product') || lower.includes('inside') || lower.includes('missing product')) {
+      } else if (this.containsKeyword(lower, ['contents', 'item', 'items', 'product', 'products', 'inside', 'missing product'])) {
         part = 'contents';
-      } else if (lower.includes('box') || lower.includes('package') || lower.includes('parcel')) {
+      } else if (this.containsKeyword(lower, ['box', 'boxes', 'package', 'packages', 'parcel', 'parcels'])) {
         part = 'box';
       }
 
       // 2. Issue matching
-      if (lower.includes('crushed') || lower.includes('crush') || lower.includes('squashed') || lower.includes('bent') || lower.includes('dab')) {
+      if (this.containsKeyword(lower, ['crushed', 'crush', 'squashed', 'bent', 'dab'])) {
         issue = 'crushed_packaging';
-      } else if (lower.includes('torn') || lower.includes('open') || lower.includes('phati')) {
+      } else if (this.containsKeyword(lower, ['torn', 'open', 'opened', 'phati'])) {
         issue = 'torn_packaging';
-      } else if (lower.includes('water') || lower.includes('wet') || lower.includes('rain')) {
+      } else if (this.containsKeyword(lower, ['water', 'wet', 'rain'])) {
         issue = 'water_damage';
-      } else if (lower.includes('stain') || lower.includes('oily') || lower.includes('oil')) {
+      } else if (this.containsKeyword(lower, ['stain', 'stained', 'oily', 'oil'])) {
         issue = 'stain';
       }
 
@@ -139,3 +145,4 @@ export class ClaimExtractor {
     return { part: 'unknown', issue: 'unknown' };
   }
 }
+
